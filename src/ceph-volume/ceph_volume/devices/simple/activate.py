@@ -108,7 +108,7 @@ class Activate(object):
             # write the keyring always so that we can unlock
             encryption_utils.write_lockbox_keyring(osd_id, osd_fsid, lockbox_secret)
             # Store the secret around so that the decrypt method can reuse
-            raw_dmcrypt_secret = encryption_utils.get_dmcrypt_key(osd_id, osd_fsid)
+            raw_dmcrypt_secret = encryption_utils.get_lockbox_dmcrypt_key(osd_id, osd_fsid)
             # Note how both these calls need b64decode. For some reason, the
             # way ceph-disk creates these keys, it stores them in the monitor
             # *undecoded*, requiring this decode call again. The lvm side of

@@ -49,10 +49,13 @@ def prepare_filestore(device, journal, secrets, tags, osd_id, fsid):
     cephx_secret = secrets.get('cephx_secret', prepare_utils.create_key())
 
     # encryption-only operations
-    if secrets.get('dmcrypt_key'):
+    if secrets.get('keymanager'):
         # format and open ('decrypt' devices) and re-assign the device and journal
         # variables so that the rest of the process can use the mapper paths
-        key = secrets['dmcrypt_key']
+        if secrets.get('dmcrypt_key'):
+            key = secrets['dmcrypt_key']
+        elif secrets.get('vault_dmcrypt_key'):
+            key = secrets['vault_dmcrypt_key']
         device = prepare_dmcrypt(key, device, 'data', tags)
         journal = prepare_dmcrypt(key, journal, 'journal', tags)
 
@@ -91,17 +94,19 @@ def prepare_bluestore(block, wal, db, secrets, tags, osd_id, fsid):
     """
     cephx_secret = secrets.get('cephx_secret', prepare_utils.create_key())
     # encryption-only operations
-    if secrets.get('dmcrypt_key'):
+    if secrets.get('keymanager'):
         # If encrypted, there is no need to create the lockbox keyring file because
         # bluestore re-creates the files and does not have support for other files
         # like the custom lockbox one. This will need to be done on activation.
         # format and open ('decrypt' devices) and re-assign the device and journal
         # variables so that the rest of the process can use the mapper paths
-        key = secrets['dmcrypt_key']
+        if secrets.get('dmcrypt_key'):
+            key = secrets['dmcrypt_key']
+        elif secrets.get('vault_dmcrypt_key'):
+            key = secrets['vault_dmcrypt_key']
         block = prepare_dmcrypt(key, block, 'block', tags)
         wal = prepare_dmcrypt(key, wal, 'wal', tags)
         db = prepare_dmcrypt(key, db, 'db', tags)
-
     # create the directory
     prepare_utils.create_osd_path(osd_id, tmpfs=True)
     # symlink the block
@@ -215,8 +220,8 @@ class Prepare(object):
         """
         try:
             self.prepare(args)
-        except Exception:
-            logger.error('lvm prepare was unable to complete')
+        except Exception as e:
+            logger.error('lvm prepare was unable to complete: %s', e)
             logger.info('will rollback OSD ID creation')
             rollback_osd(args, self.osd_id)
             raise
@@ -229,16 +234,33 @@ class Prepare(object):
         # (!!) or some flags that we would need to compound into a dict so that we
         # can convert to JSON (!!!)
         secrets = {'cephx_secret': prepare_utils.create_key()}
+        encrypted = args.dmcrypt
+        vault = args.vault
+        lockbox = args.lockbox
         cephx_lockbox_secret = ''
-        encrypted = 1 if args.dmcrypt else 0
-        cephx_lockbox_secret = '' if not encrypted else prepare_utils.create_key()
-
-        if encrypted:
-            secrets['dmcrypt_key'] = encryption_utils.create_dmcrypt_key()
-            secrets['cephx_lockbox_secret'] = cephx_lockbox_secret
+        vault_url = ''
+        vault_token = ''
 
         cluster_fsid = conf.ceph.get('global', 'fsid')
         osd_fsid = args.osd_fsid or system.generate_uuid()
+
+        if encrypted:
+            if lockbox:
+                secrets['keymanager'] = 'lockbox'
+                secrets['dmcrypt_key'] = encryption_utils.create_dmcrypt_key()
+                cephx_lockbox_secret = prepare_utils.create_key()
+                secrets['cephx_lockbox_secret'] = cephx_lockbox_secret
+            elif vault:
+                vault_url = args.vault_url
+                vault_token = args.vault_token
+                secrets['keymanager'] = 'vault'
+                secrets['vault_dmcrypt_key'] = \
+                    encryption_utils.get_vault_dmcrypt_key(osd_fsid,
+                                                           vault_url,
+                                                           vault_token)
+                secrets['vault_url'] = vault_url
+                secrets['vault_token'] = vault_token
+
         crush_device_class = args.crush_device_class
         if crush_device_class:
             secrets['crush_device_class'] = crush_device_class
@@ -261,8 +283,12 @@ class Prepare(object):
 
             tags['ceph.data_device'] = data_lv.lv_path
             tags['ceph.data_uuid'] = data_lv.lv_uuid
-            tags['ceph.cephx_lockbox_secret'] = cephx_lockbox_secret
-            tags['ceph.encrypted'] = encrypted
+            if lockbox:
+                tags['ceph.cephx_lockbox_secret'] = cephx_lockbox_secret
+            elif vault:
+                tags['ceph.vault_url'] = vault_url
+                tags['ceph.vault_token'] = vault_token
+            tags['ceph.encrypted'] = '1' if encrypted else '0'
 
             journal_device, journal_uuid, tags = self.setup_device('journal', args.journal, tags)
 
@@ -284,8 +310,12 @@ class Prepare(object):
 
             tags['ceph.block_device'] = block_lv.lv_path
             tags['ceph.block_uuid'] = block_lv.lv_uuid
-            tags['ceph.cephx_lockbox_secret'] = cephx_lockbox_secret
-            tags['ceph.encrypted'] = encrypted
+            if lockbox:
+                tags['ceph.cephx_lockbox_secret'] = cephx_lockbox_secret
+            elif vault:
+                tags['ceph.vault_url'] = vault_url
+                tags['ceph.vault_token'] = vault_token
+            tags['ceph.encrypted'] = '1' if encrypted else '0'
 
             wal_device, wal_uuid, tags = self.setup_device('wal', args.block_wal, tags)
             db_device, db_uuid, tags = self.setup_device('db', args.block_db, tags)
@@ -335,9 +365,12 @@ class Prepare(object):
             print(sub_command_help)
             return
         exclude_group_options(parser, argv=self.argv, groups=['filestore', 'bluestore'])
+        exclude_group_options(parser, argv=self.argv, groups=['lockbox', 'vault'])
         args = parser.parse_args(self.argv)
         # Default to bluestore here since defaulting it in add_argument may
         # cause both to be True
         if not args.bluestore and not args.filestore:
             args.bluestore = True
+        if args.dmcrypt and (not args.lockbox and not args.vault):
+            args.lockbox = True
         self.safe_prepare(args)

@@ -52,6 +52,8 @@ def common_parser(prog, description):
     required_group = parser.add_argument_group('required arguments')
     filestore_group = parser.add_argument_group('filestore')
     bluestore_group = parser.add_argument_group('bluestore')
+    encryption_group = parser.add_argument_group('encryption')
+
 
     required_group.add_argument(
         '--data',
@@ -105,10 +107,34 @@ def common_parser(prog, description):
         help='Crush device class to assign this OSD to',
     )
 
-    parser.add_argument(
+    encryption_group.add_argument(
         '--dmcrypt',
         action='store_true',
         help='Enable device encryption via dm-crypt',
+    )
+
+    encryption_group.add_argument(
+        '--lockbox',
+        action='store_true',
+        help='Use Ceph lockbox for dmcrypt key storage',
+    )
+
+    encryption_group.add_argument(
+        '--vault',
+        action='store_true',
+        help='Use Vault for dmcrypt key storage',
+    )
+
+    encryption_group.add_argument(
+        '--vault-url',
+        dest="vault_url",
+        help='URL of Vault secrets server',
+    )
+
+    encryption_group.add_argument(
+        '--vault-token',
+        dest="vault_token",
+        help='Token for access to Vault secrets server',
     )
 
     # Do not parse args, so that consumers can do something before the args get

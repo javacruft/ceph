@@ -1,6 +1,9 @@
 import base64
+import hvac
+from hvac import exceptions as hvac_exceptions
 import os
 import logging
+import tenacity
 from ceph_volume import process, conf
 from ceph_volume.util import constants, system
 from .prepare import write_keyring
@@ -99,7 +102,38 @@ def dmcrypt_close(mapping):
     process.run(['cryptsetup', 'remove', mapping])
 
 
-def get_dmcrypt_key(osd_id, osd_fsid, lockbox_keyring=None):
+def get_vault_dmcrypt_key(osd_fsid, vault, token):
+    """
+    Retrieve an OSD dmcrypt (secret) key stored in vault
+
+    dmcrypt keys are stored under a simple secret backend ``ceph`` using
+    ``dm-crypt/osd/<osd_fsid>`` using the luks key
+
+    A Vault URL and token must be supplied to retrieve the luks
+    secret from Vault.
+    """
+    @tenacity.retry(
+        wait=tenacity.wait_fixed(1),
+        stop=tenacity.stop_after_delay(120),
+        retry=(tenacity.retry_if_exception(hvac_exceptions.VaultNotInitialized) |
+               tenacity.retry_if_exception(hvac_exceptions.VaultDown)))
+    def _read_luks_key(vault_client):
+        return vault_client.read('ceph/dm-crypt/osd/{}'.format(osd_fsid))
+
+    client = hvac.Client(url=vault, token=token)
+    try:
+        osd_data = _read_luks_key(client)
+        if not osd_data:
+            client.write('ceph/dm-crypt/osd/{}'.format(osd_fsid),
+                         luks=create_dmcrypt_key())
+            osd_data = _read_luks_key(client)
+    except hvac_exceptions.VaultError:
+        raise RuntimeError('Unable to retrieve dmcrypt secret')
+
+    return osd_data['data']['luks'].strip()
+
+
+def get_lockbox_dmcrypt_key(osd_id, osd_fsid, lockbox_keyring=None):
     """
     Retrieve the dmcrypt (secret) key stored initially on the monitor. The key
     is sent initially with JSON, and the Monitor then mangles the name to

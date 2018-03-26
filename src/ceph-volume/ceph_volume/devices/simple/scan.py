@@ -159,7 +159,7 @@ class Scan(object):
             lockbox_path = self.device_mounts.get(lockbox)[0]
             lockbox_metadata = self.scan_directory(lockbox_path)
             # ceph-disk stores the fsid as osd-uuid in the lockbox, thanks ceph-disk
-            dmcrypt_secret = encryption.get_dmcrypt_key(
+            dmcrypt_secret = encryption.get_lockbox_dmcrypt_key(
                 None,  # There is no ID stored in the lockbox
                 lockbox_metadata['osd-uuid'],
                 os.path.join(lockbox_path, 'keyring')
@@ -168,7 +168,7 @@ class Scan(object):
             with system.tmp_mount(lockbox) as lockbox_path:
                 lockbox_metadata = self.scan_directory(lockbox_path)
                 # ceph-disk stores the fsid as osd-uuid in the lockbox, thanks ceph-disk
-                dmcrypt_secret = encryption.get_dmcrypt_key(
+                dmcrypt_secret = encryption.get_lockbox_dmcrypt_key(
                     None,  # There is no ID stored in the lockbox
                     lockbox_metadata['osd-uuid'],
                     os.path.join(lockbox_path, 'keyring')

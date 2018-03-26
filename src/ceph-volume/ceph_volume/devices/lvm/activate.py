@@ -43,10 +43,18 @@ def activate_filestore(lvs):
     # this is done here, so that previous checks that ensure path availability
     # and correctness can still be enforced, and report if any issues are found
     if is_encrypted:
-        lockbox_secret = osd_lv.tags['ceph.cephx_lockbox_secret']
-        # this keyring writing is idempotent
-        encryption_utils.write_lockbox_keyring(osd_id, osd_fsid, lockbox_secret)
-        dmcrypt_secret = encryption_utils.get_dmcrypt_key(osd_id, osd_fsid)
+        vault_url = osd_lv.tags.get('ceph.vault_url')
+        if not vault_url:
+            lockbox_secret = osd_lv.tags['ceph.cephx_lockbox_secret']
+            # this keyring writing is idempotent
+            encryption_utils.write_lockbox_keyring(osd_id, osd_fsid, lockbox_secret)
+            dmcrypt_secret = encryption_utils.get_lockbox_dmcrypt_key(osd_id, osd_fsid)
+        else:
+            dmcrypt_secret = encryption_utils.get_vault_dmcrypt_key(
+                osd_fsid,
+                vault_url,
+                osd_lv.tags.get('ceph.vault_token')
+            )
         encryption_utils.luks_open(dmcrypt_secret, osd_lv.lv_path, osd_lv.lv_uuid)
         encryption_utils.luks_open(dmcrypt_secret, osd_journal, journal_uuid)
 
@@ -131,9 +139,18 @@ def activate_bluestore(lvs):
     # encryption is handled here, before priming the OSD dir
     if is_encrypted:
         osd_lv_path = '/dev/mapper/%s' % osd_lv.lv_uuid
-        lockbox_secret = osd_lv.tags['ceph.cephx_lockbox_secret']
-        encryption_utils.write_lockbox_keyring(osd_id, osd_fsid, lockbox_secret)
-        dmcrypt_secret = encryption_utils.get_dmcrypt_key(osd_id, osd_fsid)
+        vault_url = osd_lv.tags.get('ceph.vault_url')
+        if not vault_url:
+            lockbox_secret = osd_lv.tags['ceph.cephx_lockbox_secret']
+            encryption_utils.write_lockbox_keyring(osd_id, osd_fsid, lockbox_secret)
+            dmcrypt_secret = encryption_utils.get_lockbox_dmcrypt_key(osd_id, osd_fsid)
+        else:
+            dmcrypt_secret = encryption_utils.get_vault_dmcrypt_key(
+                osd_fsid,
+                vault_url,
+                osd_lv.tags.get('ceph.vault_token')
+            )
+
         encryption_utils.luks_open(dmcrypt_secret, osd_lv.lv_path, osd_lv.lv_uuid)
     else:
         osd_lv_path = osd_lv.lv_path
