@@ -128,9 +128,10 @@ def get_vault_dmcrypt_key(osd_fsid, vault, approle):
     def _auth_approle(vault_client):
         vault_client.auth_approle(approle)
 
-    client = hvac.Client(url=vault)
-    _auth_approle(client)
+
     try:
+        client = hvac.Client(url=vault)
+        _auth_approle(client)
         osd_data = _read_luks_key(client)
         if not osd_data:
             client.write('ceph/dm-crypt/osd/{}'.format(osd_fsid),
