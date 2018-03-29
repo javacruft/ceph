@@ -116,13 +116,13 @@ def common_parser(prog, description):
     encryption_group.add_argument(
         '--lockbox',
         action='store_true',
-        help='Use Ceph lockbox for dmcrypt key storage',
+        help='Use Ceph lockbox for dm-crypt key storage',
     )
 
     encryption_group.add_argument(
         '--vault',
         action='store_true',
-        help='Use Vault for dmcrypt key storage',
+        help='Use Vault for dm-crypt key storage',
     )
 
     encryption_group.add_argument(
