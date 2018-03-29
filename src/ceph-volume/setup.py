@@ -17,6 +17,10 @@ setup(
         'pytest >=2.1.3',
         'tox',
     ],
+    install_requires=[
+        'tenacity',
+        'hvac>=0.5.0',
+    ],
     scripts = ['bin/ceph-volume', 'bin/ceph-volume-systemd'],
     classifiers = [
         'Environment :: Console',
