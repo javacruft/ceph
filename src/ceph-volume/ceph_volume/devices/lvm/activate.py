@@ -53,7 +53,8 @@ def activate_filestore(lvs):
             dmcrypt_secret = encryption_utils.get_vault_dmcrypt_key(
                 osd_fsid,
                 vault_url,
-                osd_lv.tags.get('ceph.vault_approle')
+                osd_lv.tags.get('ceph.vault_approle'),
+                osd_lv.tags.get('ceph.vault_backend'),
             )
         encryption_utils.luks_open(dmcrypt_secret, osd_lv.lv_path, osd_lv.lv_uuid)
         encryption_utils.luks_open(dmcrypt_secret, osd_journal, journal_uuid)
@@ -148,7 +149,8 @@ def activate_bluestore(lvs):
             dmcrypt_secret = encryption_utils.get_vault_dmcrypt_key(
                 osd_fsid,
                 vault_url,
-                osd_lv.tags.get('ceph.vault_approle')
+                osd_lv.tags.get('ceph.vault_approle'),
+                osd_lv.tags.get('ceph.vault_backend'),
             )
 
         encryption_utils.luks_open(dmcrypt_secret, osd_lv.lv_path, osd_lv.lv_uuid)
