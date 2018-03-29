@@ -102,15 +102,17 @@ def dmcrypt_close(mapping):
     process.run(['cryptsetup', 'remove', mapping])
 
 
-def get_vault_dmcrypt_key(osd_fsid, vault, approle):
+def get_vault_dmcrypt_key(osd_fsid, vault, approle, backend='ceph'):
     """
     Retrieve an OSD dmcrypt (secret) key stored in vault
 
     dmcrypt keys are stored under a simple secret backend ``ceph`` using
     ``dm-crypt/osd/<osd_fsid>`` using the luks key
 
-    A Vault URL and token must be supplied to retrieve the luks
-    secret from Vault.
+    A Vault URL and AppRole must be supplied to retrieve the luks
+    secret from Vault; its assumed that the AppRole provided does not
+    require a secret_id to authenticate, with access being limited via
+    CIDR's to authorized systems.
     """
     @tenacity.retry(
         wait=tenacity.wait_fixed(1),
@@ -118,7 +120,8 @@ def get_vault_dmcrypt_key(osd_fsid, vault, approle):
         retry=(tenacity.retry_if_exception(hvac_exceptions.VaultNotInitialized) |
                tenacity.retry_if_exception(hvac_exceptions.VaultDown)))
     def _read_luks_key(vault_client):
-        return vault_client.read('ceph/dm-crypt/osd/{}'.format(osd_fsid))
+        return vault_client.read('{}/dm-crypt/osd/{}'.format(backend,
+                                                             osd_fsid))
 
     @tenacity.retry(
         wait=tenacity.wait_fixed(1),
@@ -128,13 +131,13 @@ def get_vault_dmcrypt_key(osd_fsid, vault, approle):
     def _auth_approle(vault_client):
         vault_client.auth_approle(approle)
 
-
     try:
         client = hvac.Client(url=vault)
         _auth_approle(client)
         osd_data = _read_luks_key(client)
         if not osd_data:
-            client.write('ceph/dm-crypt/osd/{}'.format(osd_fsid),
+            client.write('{}/dm-crypt/osd/{}'.format(backend,
+                                                     osd_fsid),
                          luks=create_dmcrypt_key())
             osd_data = _read_luks_key(client)
     except hvac_exceptions.VaultError:

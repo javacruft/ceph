@@ -137,6 +137,13 @@ def common_parser(prog, description):
         help='AppRole for access to Vault secrets server',
     )
 
+    encryption_group.add_argument(
+        '--vault-backend',
+        dest="vault_backend",
+        default='ceph',
+        help='Vault backend to use for storage of dm-crypt keys',
+    )
+
     # Do not parse args, so that consumers can do something before the args get
     # parsed triggering argparse behavior
     return parser

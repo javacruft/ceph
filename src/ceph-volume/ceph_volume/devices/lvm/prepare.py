@@ -253,13 +253,16 @@ class Prepare(object):
             elif vault:
                 vault_url = args.vault_url
                 vault_approle = args.vault_approle
+                vault_backend = args.vault_backend
                 secrets['keymanager'] = 'vault'
                 secrets['vault_dmcrypt_key'] = \
                     encryption_utils.get_vault_dmcrypt_key(osd_fsid,
                                                            vault_url,
-                                                           vault_approle)
+                                                           vault_approle,
+                                                           vault_backend)
                 secrets['vault_url'] = vault_url
                 secrets['vault_approle'] = vault_approle
+                secrets['vault_backend'] = vault_backend
 
         crush_device_class = args.crush_device_class
         if crush_device_class:
@@ -288,6 +291,7 @@ class Prepare(object):
             elif vault:
                 tags['ceph.vault_url'] = vault_url
                 tags['ceph.vault_approle'] = vault_approle
+                tags['ceph.vault_backend'] = vault_backend
             tags['ceph.encrypted'] = '1' if encrypted else '0'
 
             journal_device, journal_uuid, tags = self.setup_device('journal', args.journal, tags)
@@ -315,6 +319,7 @@ class Prepare(object):
             elif vault:
                 tags['ceph.vault_url'] = vault_url
                 tags['ceph.vault_approle'] = vault_approle
+                tags['ceph.vault_backend'] = vault_backend
             tags['ceph.encrypted'] = '1' if encrypted else '0'
 
             wal_device, wal_uuid, tags = self.setup_device('wal', args.block_wal, tags)
