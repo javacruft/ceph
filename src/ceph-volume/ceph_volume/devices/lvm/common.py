@@ -128,13 +128,13 @@ def common_parser(prog, description):
     encryption_group.add_argument(
         '--vault-url',
         dest="vault_url",
-        help='URL of Vault secrets server',
+        help='(REQUIRED) URL of Vault secrets server',
     )
 
     encryption_group.add_argument(
         '--vault-approle',
         dest="vault_approle",
-        help='AppRole for access to Vault secrets server',
+        help='(REQUIRED) AppRole for access to Vault secrets server',
     )
 
     encryption_group.add_argument(
