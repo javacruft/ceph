@@ -102,7 +102,7 @@ def dmcrypt_close(mapping):
     process.run(['cryptsetup', 'remove', mapping])
 
 
-def get_vault_dmcrypt_key(osd_fsid, vault, token):
+def get_vault_dmcrypt_key(osd_fsid, vault, approle):
     """
     Retrieve an OSD dmcrypt (secret) key stored in vault
 
@@ -120,7 +120,16 @@ def get_vault_dmcrypt_key(osd_fsid, vault, token):
     def _read_luks_key(vault_client):
         return vault_client.read('ceph/dm-crypt/osd/{}'.format(osd_fsid))
 
-    client = hvac.Client(url=vault, token=token)
+    @tenacity.retry(
+        wait=tenacity.wait_fixed(1),
+        stop=tenacity.stop_after_delay(120),
+        retry=(tenacity.retry_if_exception(hvac_exceptions.VaultNotInitialized) |
+               tenacity.retry_if_exception(hvac_exceptions.VaultDown)))
+    def _auth_approle(vault_client):
+        vault_client.auth_approle(approle)
+
+    client = hvac.Client(url=vault)
+    _auth_approle(client)
     try:
         osd_data = _read_luks_key(client)
         if not osd_data:

@@ -132,9 +132,9 @@ def common_parser(prog, description):
     )
 
     encryption_group.add_argument(
-        '--vault-token',
-        dest="vault_token",
-        help='Token for access to Vault secrets server',
+        '--vault-approle',
+        dest="vault_approle",
+        help='AppRole for access to Vault secrets server',
     )
 
     # Do not parse args, so that consumers can do something before the args get

@@ -239,7 +239,7 @@ class Prepare(object):
         lockbox = args.lockbox
         cephx_lockbox_secret = ''
         vault_url = ''
-        vault_token = ''
+        vault_approle = ''
 
         cluster_fsid = conf.ceph.get('global', 'fsid')
         osd_fsid = args.osd_fsid or system.generate_uuid()
@@ -252,14 +252,14 @@ class Prepare(object):
                 secrets['cephx_lockbox_secret'] = cephx_lockbox_secret
             elif vault:
                 vault_url = args.vault_url
-                vault_token = args.vault_token
+                vault_approle = args.vault_approle
                 secrets['keymanager'] = 'vault'
                 secrets['vault_dmcrypt_key'] = \
                     encryption_utils.get_vault_dmcrypt_key(osd_fsid,
                                                            vault_url,
-                                                           vault_token)
+                                                           vault_approle)
                 secrets['vault_url'] = vault_url
-                secrets['vault_token'] = vault_token
+                secrets['vault_approle'] = vault_approle
 
         crush_device_class = args.crush_device_class
         if crush_device_class:
@@ -287,7 +287,7 @@ class Prepare(object):
                 tags['ceph.cephx_lockbox_secret'] = cephx_lockbox_secret
             elif vault:
                 tags['ceph.vault_url'] = vault_url
-                tags['ceph.vault_token'] = vault_token
+                tags['ceph.vault_approle'] = vault_approle
             tags['ceph.encrypted'] = '1' if encrypted else '0'
 
             journal_device, journal_uuid, tags = self.setup_device('journal', args.journal, tags)
@@ -314,7 +314,7 @@ class Prepare(object):
                 tags['ceph.cephx_lockbox_secret'] = cephx_lockbox_secret
             elif vault:
                 tags['ceph.vault_url'] = vault_url
-                tags['ceph.vault_token'] = vault_token
+                tags['ceph.vault_approle'] = vault_approle
             tags['ceph.encrypted'] = '1' if encrypted else '0'
 
             wal_device, wal_uuid, tags = self.setup_device('wal', args.block_wal, tags)
